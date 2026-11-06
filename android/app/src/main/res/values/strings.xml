@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Hybrid Tracker</string>
+    <string name="title_dashboard">Tracking Dashboard</string>
+    <string name="title_radar">BLE 5.1 AoA Radar</string>
+    <string name="title_mirroring">Cross-Device Mirroring</string>
+    <string name="fgs_notification_title">Hybrid Ecosystem Active</string>
+    <string name="fgs_notification_desc">Continuous cell tower and BLE proximity monitoring</string>
+</resources>

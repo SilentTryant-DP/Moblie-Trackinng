@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hybrid Mobile Tracker</title>
+    <!-- Leaflet CSS & JS for Interactive Geospatial Mapping -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0a0f1d;
+            --surface: #151f33;
+            --surface-hover: #1e2c47;
+            --primary: #2563eb;
+            --primary-glow: rgba(37, 99, 235, 0.4);
+            --accent-green: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #243452;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #030712;
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        /* Mobile Device Frame Mockup */
+        .phone-frame {
+            width: 100%;
+            max-width: 440px;
+            height: 900px;
+            max-height: 94vh;
+            background: var(--bg-dark);
+            border-radius: 44px;
+            border: 8px solid #1f293d;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 35px rgba(37, 99, 235, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Top Notch / Dynamic Island */
+        .notch-bar {
+            height: 30px;
+            background: transparent;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            z-index: 100;
+        }
+
+        .dynamic-island {
+            width: 100px;
+            height: 20px;
+            background: #000;
+            border-radius: 20px;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            top: 6px;
+        }
+
+        /* Content Scrollable Container */
+        .app-content {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 70px;
+        }
+
+        .tab-page {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+            padding: 16px;
+        }
+
+        .tab-page.active {
+            display: flex;
+        }
+
+        /* Hero Card */
+        .hero-card {
+            background: linear-gradient(145deg, #182640, #131c31);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 18px;
+            position: relative;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .badge {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-green);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .coords-display {
+            font-size: 20px;
+            font-weight: 800;
+            margin: 10px 0 4px;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .accuracy-tag {
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        /* Map Container */
+        #map {
+            width: 100%;
+            height: 240px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            z-index: 10;
+        }
+
+        .osm-dark-tiles {
+            filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+        }
+
+        .leaflet-control-layers {
+            background: rgba(15, 23, 42, 0.85) !important;
+            color: #f8fafc !important;
+            border: 1px solid #243452 !important;
+            border-radius: 8px !important;
+            font-size: 10px !important;
+        }
+
+        /* Modality Cards */
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            margin-top: 6px;
+        }
+
+        .modality-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+        }
+
+        .modality-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .modality-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            background: rgba(37, 99, 235, 0.15);
+            color: #3b82f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .modality-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .modality-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 26px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #334155;
+            transition: .3s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Radar Tab Styles */
+        .radar-box {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            margin: 20px auto;
+            border-radius: 50%;
+            border: 2px solid #22c55e;
+            background: radial-gradient(circle, rgba(34, 197, 94, 0.05) 0%, rgba(10, 15, 29, 0.8) 70%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 30px rgba(34, 197, 94, 0.2);
+            overflow: hidden;
+        }
+
+        .radar-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px dashed rgba(34, 197, 94, 0.3);
+        }
+
+        .radar-ring-1 { width: 60px; height: 60px; }
+        .radar-ring-2 { width: 130px; height: 130px; }
+        .radar-ring-3 { width: 200px; height: 200px; }
+
+        .radar-crosshair-v {
+            position: absolute;
+            width: 1px;
+            height: 100%;
+            background: rgba(34, 197, 94, 0.3);
+        }
+
+        .radar-crosshair-h {
+            position: absolute;
+            width: 100%;
+            height: 1px;
+            background: rgba(34, 197, 94, 0.3);
+        }
+
+        .radar-sweep {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, transparent 70%, rgba(34, 197, 94, 0.4) 100%);
+            animation: sweep 4s linear infinite;
+        }
+
+        @keyframes sweep {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .radar-target {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: #22c55e;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #22c55e;
+            top: 38%;
+            left: 58%;
+        }
+
+        /* Mirrored Call Overlay */
+        .call-overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 15, 29, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 200;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 60px 24px;
+            text-align: center;
+        }
+
+        .call-overlay.active {
+            display: flex;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 14px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-red { background: var(--accent-red); }
+        .btn-green { background: var(--accent-green); }
+        .btn-amber { background: var(--accent-amber); }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-icon {
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="phone-frame">
+    <!-- Top Notch Header -->
+    <div class="notch-bar">
+        <span id="header-clock">9:41</span>
+        <div class="dynamic-island"></div>
+        <span id="header-status">LTE 5G 86%</span>
+    </div>
+
+    <!-- Application Content Container -->
+    <div class="app-content">
+
+        <!-- TAB 1: TRACKING DASHBOARD -->
+        <div id="tab-tracker" class="tab-page active">
+            <!-- Optimal Fused Location Hero Card -->
+            <div class="hero-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:11px; font-weight:700; color:var(--primary); letter-spacing:0.8px;">OPTIMAL FUSED LOCATION</span>
+                    <span id="fused-confidence" class="badge">98% CONFIDENCE</span>
+                </div>
+                <div id="fused-coords" class="coords-display">37.774910° N, 122.419405° W</div>
+                <div id="fused-accuracy" class="accuracy-tag">Estimated Uncertainty: ±1.8 meters</div>
+                <div style="margin-top:8px; font-size:12px; color:#3b82f6; font-weight:600;" id="fused-primary">
+                    Primary Source: BLE 5.1 AoA (Micro-Location)
+                </div>
+            </div>
+
+            <!-- Live Leaflet Geospatial Map -->
+            <div id="map"></div>
+
+            <!-- 4-Way Modality Arbiter -->
+            <div class="section-title">4-Way Modality Arbiter & Probes</div>
+
+            <div class="modality-card">
+                <div class="modality-info">
+                    <div class="modality-icon">🛰️</div>
+                    <div>
+                        <div class="modality-title">1. GPS / GNSS Satellite Fix</div>
+                        <div class="modality-sub" id="gps-status">Active (7 SVs, HDOP 1.1) • ±8.5m</div>
+                    </div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-gps" checked onchange="toggleSource('gps')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="modality-card">
+                <div class="modality-info">
+                    <div class="modality-icon" style="color:#22c55e; background:rgba(34,197,94,0.15)">📶</div>
+                    <div>
+                        <div class="modality-title">2. BLE 5.1 Angle of Arrival</div>
+                        <div class="modality-sub" id="ble-status">CTE Tone @ 2.44 GHz • ±1.8m</div>
+                    </div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-ble" checked onchange="toggleSource('ble')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="modality-card">
+                <div class="modality-info">
+                    <div class="modality-icon" style="color:#f59e0b; background:rgba(245,158,11,0.15)">🗼</div>
+                    <div>
+                        <div class="modality-title">3. Cell Tower R-Tree (Offline)</div>
+                        <div class="modality-sub" id="cell-status">3 Towers Matched (CID 401821) • ±140m</div>
+                    </div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-cell" checked onchange="toggleSource('cell')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="modality-card">
+                <div class="modality-info">
+                    <div class="modality-icon" style="color:#a855f7; background:rgba(168,85,247,0.15)">📡</div>
+                    <div>
+                        <div class="modality-title">4. P2P Mesh Peer Anchor</div>
+                        <div class="modality-sub" id="mesh-status">Wi-Fi Direct Ad-Hoc • Inactive</div>
+                    </div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-mesh" onchange="toggleSource('mesh')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- TAB 2: BLE 5.1 AOA RADAR -->
+        <div id="tab-radar" class="tab-page">
+            <div style="text-align:center; padding-top:10px;">
+                <div class="section-title">Micro-Location Direction Finding</div>
+                <h2 style="font-size:20px; font-weight:800; margin-top:4px;">BLE 5.1 AoA Radar</h2>
+                <p style="font-size:12px; color:var(--text-muted);">Phase difference measuring Continuous Tone Extension</p>
+            </div>
+
+            <div class="radar-box">
+                <div class="radar-crosshair-v"></div>
+                <div class="radar-crosshair-h"></div>
+                <div class="radar-ring radar-ring-1"></div>
+                <div class="radar-ring radar-ring-2"></div>
+                <div class="radar-ring radar-ring-3"></div>
+                <div class="radar-sweep"></div>
+                <div id="radar-target-blip" class="radar-target"></div>
+            </div>
+
+            <div class="modality-card" style="justify-content:space-around; text-align:center;">
+                <div>
+                    <div style="font-size:10px; color:var(--text-muted); font-weight:700;">AZIMUTH</div>
+                    <div id="radar-azimuth-val" style="font-size:18px; font-weight:800; color:#22c55e;">18.4° NNE</div>
+                </div>
+                <div>
+                    <div style="font-size:10px; color:var(--text-muted); font-weight:700;">DISTANCE</div>
+                    <div id="radar-distance-val" style="font-size:18px; font-weight:800; color:#fff;">1.8 m</div>
+                </div>
+                <div>
+                    <div style="font-size:10px; color:var(--text-muted); font-weight:700;">RSSI / CTE</div>
+                    <div id="radar-rssi-val" style="font-size:18px; font-weight:800; color:#3b82f6;">-58 dBm</div>
+                </div>
+            </div>
+
+            <div class="hero-card" style="margin-top:6px;">
+                <div style="font-size:12px; font-weight:700; color:#22c55e;">1024s ROTATING EID PRIVACY</div>
+                <p style="font-size:12px; color:var(--text-muted); margin-top:6px;">
+                    Broadcasting ephemeral identifier projected onto elliptic curve SECP160R1. Zero static MAC address exposed to public listeners.
+                </p>
+            </div>
+        </div>
+
+        <!-- TAB 3: ALERTS & SMS MIRRORING -->
+        <div id="tab-alerts" class="tab-page">
+            <div class="section-title">Cross-Device Mirroring & Fallback</div>
+
+            <div class="hero-card">
+                <div style="font-size:12px; font-weight:700; color:var(--primary);">TIER 1 & 2 CALL MIRRORING</div>
+                <p style="font-size:12px; color:var(--text-muted); margin:6px 0 12px;">
+                    Test native incoming VoIP call trigger via PushKit/CallKit, bypassing Do Not Disturb.
+                </p>
+                <button class="btn btn-green" style="width:100%;" onclick="triggerMirroredCall()">
+                    📞 Simulate Mirrored Call Alert
+                </button>
+            </div>
+
+            <div class="hero-card">
+                <div style="font-size:12px; font-weight:700; color:var(--accent-amber);">TIER 3 SILENT SMS WAKE</div>
+                <p style="font-size:12px; color:var(--text-muted); margin:6px 0 12px;">
+                    Transmits an authenticated <code>MT#</code> command via cellular PDU to remotely poll offline coordinates.
+                </p>
+                <button class="btn btn-amber" style="width:100%;" onclick="triggerSmsPoll()">
+                    ✉️ Dispatch Silent Poll SMS (Offline)
+                </button>
+                <div id="sms-log-output" style="margin-top:10px; font-size:11px; color:#cbd5e1; font-family:monospace; background:#0b1120; padding:10px; border-radius:10px; display:none;"></div>
+            </div>
+
+            <div class="hero-card">
+                <div style="font-size:12px; font-weight:700; color:#a855f7;">ANDROID 15 FGS COMPLIANCE</div>
+                <p style="font-size:12px; color:var(--text-muted); margin-top:6px;">
+                    Handling 6-hour rolling <code>dataSync</code> limits with <code>Service.onTimeout()</code> SQLite checkpointing to eliminate ANR crashes.
+                </p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Incoming Call Native Ringing Overlay -->
+    <div id="call-modal" class="call-overlay">
+        <div>
+            <div style="font-size:11px; font-weight:700; color:var(--accent-amber); letter-spacing:1px;">MIRRORED PHONE CALL</div>
+            <h2 id="caller-name" style="font-size:26px; font-weight:800; margin-top:8px;">Family Member</h2>
+            <p id="caller-number" style="font-size:14px; color:var(--text-muted); margin-top:4px;">+1 (555) 019-2834</p>
+        </div>
+        <div>
+            <div style="font-size:12px; color:var(--text-muted); margin-bottom:20px;">Relayed via VoIP PushKit (Bypassing DND)</div>
+            <div style="display:flex; justify-content:center; gap:24px;">
+                <button class="btn btn-red" style="width:80px; height:80px; border-radius:50%; font-size:24px;" onclick="dismissCall()">✕</button>
+                <button class="btn btn-green" style="width:80px; height:80px; border-radius:50%; font-size:24px;" onclick="dismissCall()">📞</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('tracker', this)">
+            <span class="nav-icon">🧭</span>
+            <span>Tracker</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('radar', this)">
+            <span class="nav-icon">🎯</span>
+            <span>AoA Radar</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('alerts', this)">
+            <span class="nav-icon">🔔</span>
+            <span>Mirroring</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    let map, fusedMarker, accuracyCircle, towerMarkers = [];
+
+    function initMap() {
+        // Initialize Leaflet Map centered around San Francisco test coordinates
+        map = L.map('map', { zoomControl: false }).setView([37.774910, -122.419405], 15);
+        
+        // Esri Dark Gray Canvas - 100% Free, Zero Watermarks, Zero API Key
+        const esriDark = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '&copy; Esri',
+            maxZoom: 16
+        });
+
+        // OpenStreetMap Dark Filtered - 100% Free, Zero API Key
+        const osmDark = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19,
+            className: 'osm-dark-tiles'
+        });
+
+        esriDark.addTo(map);
+
+        L.control.layers({
+            "Dark Canvas (Free)": esriDark,
+            "OSM High-Res (Free)": osmDark
+        }, null, { position: 'topright' }).addTo(map);
+
+        // Marker for Fused Location
+        fusedMarker = L.circleMarker([37.774910, -122.419405], {
+            radius: 8,
+            fillColor: "#2563eb",
+            color: "#ffffff",
+            weight: 3,
+            opacity: 1,
+            fillOpacity: 1
+        }).addTo(map);
+
+        accuracyCircle = L.circle([37.774910, -122.419405], {
+            radius: 50,
+            fillColor: "#3b82f6",
+            fillOpacity: 0.2,
+            color: "#2563eb",
+            weight: 1
+        }).addTo(map);
+
+        loadTowers();
+    }
+
+    async function loadTowers() {
+        try {
+            const res = await fetch('/api/towers');
+            const towers = await res.json();
+            towers.forEach(t => {
+                const tower = L.circleMarker([t.lat, t.lon], {
+                    radius: 5,
+                    fillColor: "#f59e0b",
+                    color: "#d97706",
+                    weight: 2,
+                    fillOpacity: 0.9
+                }).bindPopup(`<b>${t.radio} Cell Tower</b><br>CID: ${t.cid}<br>Radius: ${t.range}m`).addTo(map);
+                towerMarkers.push(tower);
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function pollState() {
+        try {
+            const res = await fetch('/api/state');
+            const data = await res.json();
+
+            // Update Header Clock and Status
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const clockEl = document.getElementById('header-clock');
+            if (clockEl) clockEl.innerText = timeStr;
+            const statusEl = document.getElementById('header-status');
+            if (statusEl) {
+                const mode = data.power_state === 'STATIONARY_SAFE' ? 'PSM' : 'eDRX';
+                statusEl.innerText = `${mode} 5G ${data.battery_pct}%`;
+            }
+
+            // Update Fused Location Info
+            const fix = data.fused_location;
+            if (fix.lat !== 0.0) {
+                document.getElementById('fused-coords').innerText = `${fix.lat.toFixed(6)}° N, ${Math.abs(fix.lon).toFixed(6)}° W`;
+                document.getElementById('fused-accuracy').innerText = `Estimated Uncertainty: ±${fix.accuracy} meters`;
+                document.getElementById('fused-confidence').innerText = `${fix.confidence}% CONFIDENCE`;
+                document.getElementById('fused-primary').innerText = `Primary Source: ${fix.primary_source}`;
+                if (map && fusedMarker && accuracyCircle) {
+                    fusedMarker.setLatLng([fix.lat, fix.lon]);
+                    accuracyCircle.setLatLng([fix.lat, fix.lon]);
+                    accuracyCircle.setRadius(Math.max(10, fix.accuracy));
+                    accuracyCircle.setStyle({ opacity: 1, fillOpacity: 0.2 });
+                    fusedMarker.setStyle({ opacity: 1, fillOpacity: 1 });
+                }
+            } else {
+                document.getElementById('fused-coords').innerText = "NO SIGNAL / ALL RADIOS OFF";
+                document.getElementById('fused-accuracy').innerText = "Estimated Uncertainty: Infinite";
+                document.getElementById('fused-confidence').innerText = "0% CONFIDENCE";
+                document.getElementById('fused-primary').innerText = "Primary Source: None Available";
+                if (fusedMarker && accuracyCircle) {
+                    accuracyCircle.setStyle({ opacity: 0, fillOpacity: 0 });
+                    fusedMarker.setStyle({ opacity: 0, fillOpacity: 0 });
+                }
+            }
+
+            // Update Switcher Checks & Detailed Subtitle Status
+            const s = data.sources;
+            document.getElementById('toggle-gps').checked = s.gps.enabled;
+            document.getElementById('gps-status').innerText = s.gps.enabled 
+                ? `${s.gps.reason} • ±${s.gps.accuracy}m` 
+                : "Radio Disabled • Standby";
+
+            document.getElementById('toggle-ble').checked = s.ble.enabled;
+            document.getElementById('ble-status').innerText = s.ble.enabled 
+                ? `${s.ble.reason} • ±${s.ble.accuracy}m` 
+                : "BLE Advertising Only • Inactive";
+
+            document.getElementById('toggle-cell').checked = s.cell.enabled;
+            document.getElementById('cell-status').innerText = s.cell.enabled 
+                ? `${s.cell.reason} • ±${s.cell.accuracy}m` 
+                : "Modem Disconnected • Standby";
+
+            document.getElementById('toggle-mesh').checked = s.mesh.enabled;
+            document.getElementById('mesh-status').innerText = s.mesh.enabled 
+                ? `Wi-Fi Direct Peer Active (Anchor) • ±${s.mesh.accuracy}m` 
+                : "Wi-Fi Direct Ad-Hoc • Inactive";
+
+            // Update Radar Tab Elements
+            const targetBlip = document.getElementById('radar-target-blip');
+            const azVal = document.getElementById('radar-azimuth-val');
+            const distVal = document.getElementById('radar-distance-val');
+            const rssiVal = document.getElementById('radar-rssi-val');
+
+            if (s.ble.enabled) {
+                if (targetBlip) {
+                    targetBlip.style.display = 'block';
+                    // Box is 260px wide/high -> center is 130px. Radius to blip is ~80px.
+                    const angleRad = (s.ble.azimuth - 90.0) * (Math.PI / 180.0);
+                    const blipX = 130 + 75 * Math.cos(angleRad);
+                    const blipY = 130 + 75 * Math.sin(angleRad);
+                    targetBlip.style.left = `${Math.round(blipX - 7)}px`;
+                    targetBlip.style.top = `${Math.round(blipY - 7)}px`;
+                }
+                if (azVal) azVal.innerText = `${s.ble.azimuth.toFixed(1)}° NNE`;
+                if (distVal) distVal.innerText = `${s.ble.accuracy.toFixed(1)} m`;
+                if (rssiVal) rssiVal.innerText = `${s.ble.rssi} dBm`;
+            } else {
+                if (targetBlip) targetBlip.style.display = 'none';
+                if (azVal) azVal.innerText = "OFFLINE";
+                if (distVal) distVal.innerText = "--";
+                if (rssiVal) rssiVal.innerText = "--";
+            }
+
+            // Update Call Modal if active
+            const modal = document.getElementById('call-modal');
+            if (data.incoming_call) {
+                document.getElementById('caller-name').innerText = data.incoming_call.name;
+                document.getElementById('caller-number').innerText = data.incoming_call.number;
+                modal.classList.add('active');
+            } else {
+                modal.classList.remove('active');
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function toggleSource(name) {
+        await fetch('/api/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: name })
+        });
+        pollState();
+    }
+
+    async function triggerMirroredCall() {
+        await fetch('/api/trigger-call', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: "Family Member", number: "+1 (555) 019-2834" })
+        });
+        pollState();
+    }
+
+    async function dismissCall() {
+        await fetch('/api/dismiss-call', { method: 'POST' });
+        pollState();
+    }
+
+    async function triggerSmsPoll() {
+        const res = await fetch('/api/trigger-sms', { method: 'POST' });
+        const log = await res.json();
+        const box = document.getElementById('sms-log-output');
+        box.style.display = 'block';
+        box.innerHTML = `
+            <b>[SMS TRANSMITTED]</b> ${log.outbound_sms}<br>
+            <b>[REPLY RECEIVED]</b> ${log.inbound_reply}<br>
+            <b>[AUTHENTICATED COORDINATES]</b> Lat: ${log.decrypted_lat}, Lon: ${log.decrypted_lon} (±${log.accuracy}m)
+        `;
+    }
+
+    function switchTab(tabId, el) {
+        document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        document.getElementById(`tab-${tabId}`).classList.add('active');
+        el.classList.add('active');
+        if (tabId === 'tracker' && map) {
+            setTimeout(() => map.invalidateSize(), 100);
+        }
+    }
+
+    window.onload = () => {
+        initMap();
+        pollState();
+        setInterval(pollState, 3000);
+    };
+</script>
+
+</body>
+</html>
